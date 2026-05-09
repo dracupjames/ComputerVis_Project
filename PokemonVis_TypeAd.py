@@ -43,9 +43,6 @@ class PokemonAI:
         # Move Menu Regions
         self.move_menu_roi = (20,750,1600,1060)
         
-        # Command Menu Detection Region (Bottom Right Buttons)
-        #self.command_menu_roi = (1150, 680, 1550, 1050) 
-        
         self.move_slots = {
             "Move1": (50, 50, 500, 150),
             "Move2": (510, 50, 970, 150),
@@ -73,7 +70,6 @@ class PokemonAI:
             "Party": (255, 0, 255),
             "Overworld": (0, 165, 255),
             "SELECT_MOVE": (255, 255, 255),
-            "COMMAND_MENU": (255, 150, 0),
             "Move1": (150,150,150),
             "Move2": (150,150,150),
             "Move3": (150,150,150),
@@ -92,9 +88,8 @@ class PokemonAI:
         # 2. Get opponent's types (e.g., ["FIRE", "FLYING"])
         target_types = self.pokemon_db[opponent_name]["type"]
         
-        # 3. Get the multiplier data for our current move type
-        # This assumes your Type_Matching.json has a "Multipliers" dict or similar
-        # If your JSON has "Weak": ["Rock", "Steel"], you'll need to parse that instead
+        # 3. Calculate the effectiveness with hardcoded multipliers here based
+        # on if the Moves type will be weak, strong, or immune to the opponent
         type_data = self.type_chart[current_move_type]
         
         final_mult = 1.0
@@ -154,11 +149,11 @@ class PokemonAI:
         clean = "".join(c for c in raw if c.isalpha())
         if len(clean) < 3: return "UNKNOWN"
         
-        matches = difflib.get_close_matches(clean, self.pokemon_db.keys(), n=1, cutoff=0.51)
+        matches = difflib.get_close_matches(clean, self.pokemon_db.keys(), n=1, cutoff=0.51) #This will get the closes match of the OCR detection to a name in the jason database
         return matches[0] if matches else "UNKNOWN"
 
     def draw_hp_status(self, dashboard): #Display % health of opponent and my own pokemons
-        #if self.current_state not in ["BATTLE", "SELECT_MOVE", "COMMAND_MENU"]: return
+        #if self.current_state not in ["BATTLE", "SELECT_MOVE"]: return
         if self.current_state not in ["BATTLE", "SELECT_MOVE"]: return
         def gba_col(p): return (0, 255, 0) if p > 50 else (0, 255, 255) if p > 20 else (0, 0, 255) # Green if greater than 50, Yellow greater than 20, red to empty else
         
@@ -225,7 +220,7 @@ class PokemonAI:
         is_slot_filled = np.count_nonzero(move_bg_mask) > 200000 # Threshold for move names to appear
 
         # Refined Move Menu Logic: White background present AND no command buttons AND move text exists
-        is_move_menu = (np.count_nonzero(move_bg_mask) > 55000) and is_slot_filled #and not is_command_menu and is_slot_filled
+        is_move_menu = (np.count_nonzero(move_bg_mask) > 55000) and is_slot_filled 
 
         # --- BATTLE LOGIC ---
         opp_active, my_active = self.is_plate_present(frame, self.opp_roi), self.is_plate_present(frame, self.my_roi)
@@ -233,9 +228,6 @@ class PokemonAI:
         if is_summary:
             self.current_state = "Summary"
             cv2.rectangle(display_game, (s_x1, s_y1), (s_x2, s_y2), self.colors["Summary"], 3)
-        # elif is_command_menu:
-        #     self.current_state = "COMMAND_MENU"
-        #     cv2.rectangle(display_game, (cx1, cy1), (cx2, cy2), self.colors["COMMAND_MENU"], 3)
         elif is_party:
             self.current_state = "Party"
             cv2.rectangle(display_game, (p_x1, p_y1), (p_x2, p_y2), self.colors["Party"], 3)
@@ -257,7 +249,7 @@ class PokemonAI:
                 # 2. OCR the type name
                 gray_t = cv2.cvtColor(type_roi, cv2.COLOR_BGR2GRAY)
                 _, thresh_t = cv2.threshold(gray_t, 150, 255, cv2.THRESH_BINARY_INV)
-                type_raw = pytesseract.image_to_string(thresh_t, config='--psm 8').strip().upper()
+                type_raw = pytesseract.image_to_string(thresh_t, config='--psm 8').strip().upper() #To detect the type of the move that is currently hovered over (Single Word unlike psm 7)
                 
                 # 3. Calculate advantage if we have an opponent name
                 opp_name = self.detected_names["OPP"]
@@ -284,6 +276,10 @@ class PokemonAI:
             for k, roi, is_opp in [("OPP", self.opp_roi, True), ("MY", self.my_roi, False)]:
                 active = opp_active if is_opp else my_active
                 if active:
+                    """
+                    If in battle we will check frame_count by the frame_rate (which in firered is 30 fps)
+                    and it will be Unknown until it finds a detection of a name in the get_name_via_ocr method call
+                    """
                     x1, y1, x2, y2 = roi
                     check_rate = 30 if self.detected_names[k] == "UNKNOWN" else 60
                     if self.frame_count % check_rate == 0:
