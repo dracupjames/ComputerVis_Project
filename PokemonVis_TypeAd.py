@@ -37,11 +37,20 @@ class PokemonAI:
         self.front_path = "sprites/front" #location of front sprites for dashboard of the pokemon
         
         # Battle Regions (1920x1080) Have to change for other similar scripts for different recordings/live runs
-        self.opp_roi = (111, 120, 702, 275)
+        self.opp_roi = (111, 120, 702, 275) # (x1,y1,x2,y2)
         self.my_roi = (915, 486, 1520, 716)
         
         # Move Menu Regions
         self.move_menu_roi = (20,750,1600,1060)
+
+        # Summary Region
+        self.summary_roi = (10, 110, 0, 1600)
+
+        # Party Region
+        self.party_roi = (870, 1030, 1190, 1559)
+
+        # Bag Region
+        self.bag_roi = (750, 1060, 0, 1600)
         
         self.move_slots = {
             "Move1": (50, 50, 500, 150),
@@ -193,20 +202,20 @@ class PokemonAI:
         frame = cv2.resize(frame, (1920, 1080))
         display_game, dashboard = frame.copy(), np.zeros((1080, 400, 3), dtype=np.uint8)
 
-        # --- MENU DETECTION ---
-        s_y1, s_y2, s_x1, s_x2 = 10, 110, 0, 1600
+        # Summary Detection
+        s_y1, s_y2, s_x1, s_x2 = self.summary_roi
         hsv_s = cv2.cvtColor(frame[s_y1:s_y2, s_x1:s_x2], cv2.COLOR_BGR2HSV)
         is_summary = (np.count_nonzero(cv2.inRange(hsv_s, np.array([90, 150, 150]), np.array([110, 255, 220]))) > 12000) and \
                      (np.count_nonzero(cv2.inRange(hsv_s, np.array([0, 0, 245]), np.array([180, 10, 255]))) > 600)
 
-        p_y1, p_y2, p_x1, p_x2 = 870, 1030, 1190, 1559
+        p_y1, p_y2, p_x1, p_x2 = self.party_roi
         #w_mask = cv2.inRange(cv2.cvtColor(frame[p_y1:p_y2, p_x1:p_x2], cv2.COLOR_BGR2HSV), np.array([0, 0, 255]), np.array([180, 5, 255]))
-        py_mask = cv2.inRange(cv2.cvtColor(frame[p_y1:p_y2,p_x1:p_x2], cv2.COLOR_BGR2HSV), np.array([80, 50, 50]), np.array([120, 55, 255]))
+        py_mask = cv2.inRange(cv2.cvtColor(frame[p_y1:p_y2,p_x1:p_x2], cv2.COLOR_BGR2HSV), np.array([110, 50, 50]), np.array([120, 55, 255]))
         is_party = (np.count_nonzero(py_mask) > 300)#and (np.count_nonzero(bg_mask) > 2900)
 
-        b_y1, b_y2, b_x1, b_x2 = 750, 1060, 0, 1600
-        blue_mask = cv2.inRange(cv2.cvtColor(frame[b_y1:b_y2, b_x1:b_x2], cv2.COLOR_BGR2HSV), np.array([90, 100, 150]), np.array([130, 255, 255]))
-        is_bag = (np.count_nonzero(blue_mask) > 300000) and not is_party
+        b_y1, b_y2, b_x1, b_x2 = self.bag_roi
+        blue_mask = cv2.inRange(cv2.cvtColor(frame[b_y1:b_y2, b_x1:b_x2], cv2.COLOR_BGR2HSV), np.array([85, 220, 190]), np.array([99, 255, 200]))
+        is_bag = (np.count_nonzero(blue_mask) > 350000) and not is_party
 
         # --- MOVE MENU DETECTION ---
         m_x1, m_y1, m_x2, m_y2 = self.move_menu_roi
@@ -251,18 +260,18 @@ class PokemonAI:
                 _, thresh_t = cv2.threshold(gray_t, 150, 255, cv2.THRESH_BINARY_INV)
                 type_raw = pytesseract.image_to_string(thresh_t, config='--psm 8').strip().upper() #To detect the type of the move that is currently hovered over (Single Word unlike psm 7)
                 
-                # 3. Calculate advantage if we have an opponent name
+                # 3. Detect opponent name and set default advantage to neutral for eventual calculation during match
                 opp_name = self.detected_names["OPP"]
                 advantage = 1.0
                 if type_raw and opp_name != "UNKNOWN":
                     # Match the raw OCR string to valid types in your JSON
                     matches = difflib.get_close_matches(type_raw, self.type_chart.keys(), n=1, cutoff=0.55)
                     if matches:
-                        advantage = self.moveAdvantage(matches[0], opp_name)
+                        advantage = self.moveAdvantage(matches[0], opp_name) # Calculation of effectiveness of a move against opponent typing
 
                 # 4. Draw results on the Dashboard
                 adv_text = f"EFFECTIVENESS: {advantage}x"
-                adv_col = (0, 255, 0) if advantage > 1 else (0, 0, 255) if advantage < 1 else (255, 255, 255)
+                adv_col = (0, 255, 0) if advantage > 1 else (0, 0, 255) if advantage < 1 else (255, 255, 255) #Can add in another color for 4x effective just need to get to a pokemon which has both typings a move is strong against.
                 cv2.putText(dashboard, adv_text, (20, 450), 1, 1.5, adv_col, 2)
                 cv2.rectangle(display_game, (m_x1, m_y1), (m_x2, m_y2), self.colors["SELECT_MOVE"], 3)
                 # Draw the individual move squares
@@ -270,7 +279,7 @@ class PokemonAI:
                     color = self.colors.get(m_name, (255, 255, 255))
                     cv2.rectangle(display_game, (m_x1+ox1, m_y1+oy1), (m_x1+ox2, m_y1+oy2), color, 2)
             else:
-                self.current_state = "BATTLE"
+                self.current_state = "BATTLE" #If not going through move menue state will display Battle
             
             self.state_buffer = self.buffer_max
             for k, roi, is_opp in [("OPP", self.opp_roi, True), ("MY", self.my_roi, False)]:
@@ -293,7 +302,7 @@ class PokemonAI:
                     nx1, ny1, nx2, ny2 = self.name_offsets[k]
                     cv2.rectangle(display_game, (x1+nx1, y1+ny1), (x1+nx2, y1+ny2), (255, 255, 0), 2)
                     self.highlight_hp_slots(display_game, roi, is_opp)
-        else:
+        else: 
             if self.state_buffer > 0: 
                 self.state_buffer, self.current_state = self.state_buffer - 1, "BATTLE"
             else:
