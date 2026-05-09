@@ -65,10 +65,10 @@ class PokemonAI:
             "OPP": (15, 12, 350, 88), 
             "MY":  (15, 32, 380, 102)
         }
-        
+        # Initialize detection of opp and my team since not in battle yet
         self.detected_names = {"OPP": "UNKNOWN", "MY": "UNKNOWN"}
         self.current_state = "Overworld"
-        self.state_buffer = 0
+        self.state_buffer = 0 #Used for frame detection of what current state one is in
         self.buffer_max = 12
         self.hp_tracker = {"OPP": 100.0, "MY": 100.0}
         self.frame_count = 0
@@ -139,7 +139,7 @@ class PokemonAI:
         roi = frame[y1:y2, x1:x2]
         if roi.size == 0: return False
         hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        beige_mask = cv2.inRange(hsv, np.array([28, 20, 180]), np.array([30, 80, 255]))
+        beige_mask = cv2.inRange(hsv, np.array([28, 20, 180]), np.array([30, 80, 255])) #Beige to light brown upper and lower bounds, with low to 80 saturation and 180 to bright/white values
         return np.count_nonzero(beige_mask) > 3500
 
     def get_name_via_ocr(self, plate_roi, is_opponent=True): #OCR implementation using psm 7 for linear line detection of text
@@ -204,17 +204,17 @@ class PokemonAI:
 
         # Summary Detection
         s_y1, s_y2, s_x1, s_x2 = self.summary_roi
-        hsv_s = cv2.cvtColor(frame[s_y1:s_y2, s_x1:s_x2], cv2.COLOR_BGR2HSV)
-        is_summary = (np.count_nonzero(cv2.inRange(hsv_s, np.array([90, 150, 150]), np.array([110, 255, 220]))) > 12000) and \
-                     (np.count_nonzero(cv2.inRange(hsv_s, np.array([0, 0, 245]), np.array([180, 10, 255]))) > 600)
+        hsv_s = cv2.cvtColor(frame[s_y1:s_y2, s_x1:s_x2], cv2.COLOR_BGR2HSV) #
+        # Cyand/Blue range and bright to white coverage for is_summary
+        is_summary = (np.count_nonzero(cv2.inRange(hsv_s, np.array([90, 150, 150]), np.array([110, 255, 220]))) > 12000) and (np.count_nonzero(cv2.inRange(hsv_s, np.array([0, 0, 245]), np.array([180, 10, 255]))) > 600)
 
         p_y1, p_y2, p_x1, p_x2 = self.party_roi
         #w_mask = cv2.inRange(cv2.cvtColor(frame[p_y1:p_y2, p_x1:p_x2], cv2.COLOR_BGR2HSV), np.array([0, 0, 255]), np.array([180, 5, 255]))
-        py_mask = cv2.inRange(cv2.cvtColor(frame[p_y1:p_y2,p_x1:p_x2], cv2.COLOR_BGR2HSV), np.array([110, 50, 50]), np.array([120, 55, 255]))
+        py_mask = cv2.inRange(cv2.cvtColor(frame[p_y1:p_y2,p_x1:p_x2], cv2.COLOR_BGR2HSV), np.array([110, 50, 50]), np.array([120, 55, 255])) #Cyan/blue range for party detection of around the 'Cancel' symbol
         is_party = (np.count_nonzero(py_mask) > 300)#and (np.count_nonzero(bg_mask) > 2900)
 
         b_y1, b_y2, b_x1, b_x2 = self.bag_roi
-        blue_mask = cv2.inRange(cv2.cvtColor(frame[b_y1:b_y2, b_x1:b_x2], cv2.COLOR_BGR2HSV), np.array([85, 220, 190]), np.array([99, 255, 200]))
+        blue_mask = cv2.inRange(cv2.cvtColor(frame[b_y1:b_y2, b_x1:b_x2], cv2.COLOR_BGR2HSV), np.array([85, 220, 190]), np.array([99, 255, 200])) #Blue range for the bag detection
         is_bag = (np.count_nonzero(blue_mask) > 350000) and not is_party
 
         # --- MOVE MENU DETECTION ---
@@ -223,7 +223,7 @@ class PokemonAI:
         m_hsv = cv2.cvtColor(move_roi_img, cv2.COLOR_BGR2HSV)
 
         # Look for the white background
-        move_bg_mask = cv2.inRange(m_hsv, np.array([0, 0, 240]), np.array([180, 15, 255]))
+        move_bg_mask = cv2.inRange(m_hsv, np.array([0, 0, 240]), np.array([179, 15, 255]))
         
         # Check for if moves slot appears with that certain amount of white pixels
         is_slot_filled = np.count_nonzero(move_bg_mask) > 200000 # Threshold for move names to appear
@@ -234,7 +234,7 @@ class PokemonAI:
         # --- BATTLE LOGIC ---
         opp_active, my_active = self.is_plate_present(frame, self.opp_roi), self.is_plate_present(frame, self.my_roi)
 
-        if is_summary:
+        if is_summary: #Displaying on the dashboard center top with a color, and thickness of 3
             self.current_state = "Summary"
             cv2.rectangle(display_game, (s_x1, s_y1), (s_x2, s_y2), self.colors["Summary"], 3)
         elif is_party:
