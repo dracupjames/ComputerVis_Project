@@ -58,7 +58,7 @@
         "Moves": ["AURORA BEAM","BLIZZARD","HAIL","HAZE","ICE BALL","ICE BEAM","ICE PUNCH","ICICLE SPEAR","ICY WIND","MIST","POWDER SNOW","SHEER COLD"]
     },
     {
-        "Type":"Fighting",
+        "Type":"Fight",
         "Immune":["Ghost"],
         "Weak":["Poison","Flying","Psychic","Bug"],
         "Strengths":["Normal","Ice","Rock","Dark","Steel"],
