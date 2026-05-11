@@ -3,7 +3,7 @@ import numpy as np
 import pytesseract
 import json
 import difflib
-
+"""Switch 2 Hardware code. Original layout used on Emulator, but changed things for the emulator code 'PokemonVis_TypeAd.py'. Somewhat more issues than on software"""
 class PokemonAI:
     def __init__(self):
         try:
