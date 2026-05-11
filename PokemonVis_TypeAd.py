@@ -38,7 +38,7 @@ class PokemonAI:
         
         # Battle Regions (1920x1080) Have to change for other similar scripts for different recordings/live runs
         self.opp_roi = (111, 120, 702, 275) # (x1,y1,x2,y2)
-        self.my_roi = (915, 486, 1520, 716)
+        self.my_roi = (915, 484, 1520, 714)
         
         # Move Menu Regions
         self.move_menu_roi = (20,750,1600,1060)
@@ -139,7 +139,7 @@ class PokemonAI:
         roi = frame[y1:y2, x1:x2]
         if roi.size == 0: return False
         hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        beige_mask = cv2.inRange(hsv, np.array([28, 20, 180]), np.array([30, 80, 255])) #Beige to light brown upper and lower bounds, with low to 80 saturation and 180 to bright/white values
+        beige_mask = cv2.inRange(hsv, np.array([29, 5, 215]), np.array([30, 45, 255])) #Beige to light brown upper and lower bounds, with low to 80 saturation and 180 to bright/white values
         return np.count_nonzero(beige_mask) > 3500
 
     def get_name_via_ocr(self, plate_roi, is_opponent=True): #OCR implementation using psm 7 for linear line detection of text
@@ -158,7 +158,7 @@ class PokemonAI:
         clean = "".join(c for c in raw if c.isalpha())
         if len(clean) < 3: return "UNKNOWN"
         
-        matches = difflib.get_close_matches(clean, self.pokemon_db.keys(), n=1, cutoff=0.51) #This will get the closes match of the OCR detection to a name in the jason database
+        matches = difflib.get_close_matches(clean, self.pokemon_db.keys(), n=1, cutoff=0.40) #This will get the closes match of the OCR detection to a name in the jason database
         return matches[0] if matches else "UNKNOWN"
 
     def draw_hp_status(self, dashboard): #Display % health of opponent and my own pokemons
@@ -182,7 +182,7 @@ class PokemonAI:
     def get_hp_percentage(self, frame, plate_coords, is_opponent=True): #detection of health bar pixels and updates according to current health in battle
         px1, py1, px2, py2 = plate_coords 
         plate_roi = frame[py1:py2, px1:px2]
-        hx1, hy1, hx2, hy2 = (244, 118, 552, 122) if is_opponent else (228, 123, 534, 127)
+        hx1, hy1, hx2, hy2 = (246, 110, 552, 114) if is_opponent else (228, 123, 534, 127)
         hp_bar_crop = plate_roi[hy1:hy2, hx1:hx2]
         if hp_bar_crop.size == 0: return None
         hsv = cv2.cvtColor(hp_bar_crop, cv2.COLOR_BGR2HSV)
@@ -194,7 +194,7 @@ class PokemonAI:
 
     def highlight_hp_slots(self, frame, coords, is_opponent=True):
         px1, py1, px2, py2 = coords
-        hx1, hy1, hx2, hy2 = (244, 118, 552, 122) if is_opponent else (228, 123, 534, 127)
+        hx1, hy1, hx2, hy2 = (246, 110, 552, 114) if is_opponent else (228, 123, 534, 127)
         cv2.rectangle(frame, (px1 + hx1, py1 + hy1), (px1 + hx2, py1 + hy2), (0, 0, 255), 2) # Red rectangles over the hp of the pokemon
 
     def process_frame(self, frame): #all square frames positions on the screen and appear or not based on if in battle or not, and also specific frames
