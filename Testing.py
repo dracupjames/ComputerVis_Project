@@ -51,7 +51,7 @@ class PokemonAI:
             "Type": (1080, 160, 1500, 250)
         }
         
-        self.name_offsets = {
+        self.name_offsets = { #To change sizing and location of the OCR for pokemon names in battle
             "OPP": (19, 30, 360, 90), 
             "MY":  (15, 29, 400, 95)
         }
